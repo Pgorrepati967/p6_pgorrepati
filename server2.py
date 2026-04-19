@@ -35,7 +35,26 @@ def add_company(db, ticker):
 
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
 def add_stock(db, ticker, date):
-    return jsonify({"error": "not implemented"}), 501
+    data = request.get_json()
+    if not data or "high" not in data or "low" not in data:
+        return jsonify({"error": "Missing high or low"}), 400
+
+    high = data["high"]
+    low = data["low"]
+
+    try:
+        session.set_keyspace(db)
+        query = "INSERT INTO stocks (ticker, date, high, low) VALUES (%s, %s, %s, %s)"
+        session.execute(query, (ticker, date, high, low))
+
+        response = {
+            "ticker": ticker,
+            "date": date,
+        }
+        return jsonify(response), 201
+    except Exception as e:
+        print(f"Error inserting stock data: {e}")
+        return jsonify({"error": "Failed to insert stock record"}), 500
 
 @app.route("/<db>/api/companies/<ticker>/records", methods=["GET"])
 def get_stocks(db, ticker):
