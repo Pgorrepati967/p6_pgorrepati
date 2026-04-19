@@ -20,19 +20,23 @@ def add_company(db, ticker):
     name = data["name"]
     sector = data["sector"]
 
-    session.set_keyspace(db)
+    try:
+        session.set_keyspace(db)
 
-    # Using UPDATE to set static columns. This works even if no rows exist for the partition key.
-    # It's an upsert for the static data.
-    query = "UPDATE stocks SET name = %s, sector = %s WHERE ticker = %s"
-    session.execute(query, (name, sector, ticker), consistency_level=ConsistencyLevel.QUORUM)
+        # Using UPDATE to set static columns. This works even if no rows exist for the partition key.
+        # It's an upsert for the static data.
+        query = "UPDATE stocks SET name = %s, sector = %s WHERE ticker = %s"
+        session.execute(query, (name, sector, ticker), consistency_level=ConsistencyLevel.QUORUM)
 
-    response = {
-        "ticker": ticker,
-        "name": name,
-        "sector": sector,
-    }
-    return jsonify(response), 201
+        response = {
+            "ticker": ticker,
+            "name": name,
+            "sector": sector,
+        }
+        return jsonify(response), 201
+    except Exception as e:
+        print(f"Error in add_company: {e}")
+        return jsonify({"error": "Failed to add/update company"}), 500
 
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
 def add_stock(db, ticker, date):
