@@ -25,6 +25,31 @@ if __name__ == "__main__":
         print("Failed to connect to Cassandra after 30 attempts")
         sys.exit(1)
 
-    # TODO: use session to create tables
+    for ks in ["prod", "test"]:
+
+        session.execute(f"""
+            CREATE KEYSPACE IF NOT EXISTS {ks}
+            WITH replication = {{
+                'class': 'SimpleStrategy',
+                'replication_factor': 3
+            }}
+        """)
+
+        session.set_keyspace(ks)
+
+        session.execute("""
+            CREATE TABLE IF NOT EXISTS stocks (
+                ticker TEXT,
+                date DATE,
+                high DOUBLE,
+                low DOUBLE,
+
+                -- STATIC columns (per partition / per ticker)
+                name TEXT STATIC,
+                sector TEXT STATIC,
+
+                PRIMARY KEY ((ticker), date)
+            ) WITH CLUSTERING ORDER BY (date ASC)
+        """)
 
     app.run(host="0.0.0.0", port=5000, debug=True)
