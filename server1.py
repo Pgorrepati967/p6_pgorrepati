@@ -56,30 +56,41 @@ def add_company(db, ticker):
 
 # -------------------------
 # POST /api/companies/<ticker>/records/<date>
-# Body: {high, low}
+# Body: {open, high, low, close, volume}
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
 def add_stock(db, ticker, date):
     data = request.get_json()
+    open_price = data.get("open")
     high = data.get("high")
     low  = data.get("low")
+    close_price = data.get("close")
+    volume = data.get("volume")
 
-    if any(v is None for v in [high, low]):
-        return jsonify({"error": "high and low are required"}), 400
+    if any(v is None for v in [open_price, high, low, close_price, volume]):
+        return jsonify({"error": "open, high, low, close, and volume are required"}), 400
 
     conn = get_db(db)
     cur  = conn.cursor()
     cur.execute(
-        """INSERT INTO stocks (ticker, date, high, low)
-           VALUES (%s, %s, %s, %s)
-           ON DUPLICATE KEY UPDATE high = VALUES(high), low = VALUES(low)""",
-        (ticker, date, high, low),
+        """INSERT INTO stocks (ticker, date, open, high, low, close, volume)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           ON DUPLICATE KEY UPDATE open = VALUES(open), high = VALUES(high), low = VALUES(low), close = VALUES(close), volume = VALUES(volume)""",
+        (ticker, date, open_price, high, low, close_price, volume),
     )
     conn.commit()
     cur.close()
     conn.close()
 
-    return jsonify({"ticker": ticker, "date": date}), 201
+    response = {
+        "date": date,
+        "open": open_price,
+        "high": high,
+        "low": low,
+        "close": close_price,
+        "volume": volume,
+    }
+    return jsonify(response), 201
 
 
 # -------------------------
@@ -91,7 +102,7 @@ def get_stocks(db, ticker):
     conn = get_db(db)
     cur  = conn.cursor(dictionary=True)
     cur.execute(
-        """SELECT s.ticker, c.name, c.sector, s.date, s.high, s.low
+        """SELECT s.ticker, c.name, c.sector, s.date, s.open, s.high, s.low, s.close, s.volume
            FROM stocks s JOIN companies c ON s.ticker = c.ticker
            WHERE s.ticker = %s
            ORDER BY s.date""",
@@ -118,7 +129,7 @@ def get_stock_date(db, ticker, date):
     conn = get_db(db)
     cur  = conn.cursor(dictionary=True)
     cur.execute(
-        """SELECT s.ticker, c.name, c.sector, s.date, s.high, s.low
+        """SELECT s.ticker, c.name, c.sector, s.date, s.open, s.high, s.low, s.close, s.volume
            FROM stocks s JOIN companies c ON s.ticker = c.ticker
            WHERE s.ticker = %s AND s.date = %s""",
         (ticker, date),
@@ -149,7 +160,7 @@ def get_stock_range(db, ticker):
     conn = get_db(db)
     cur  = conn.cursor(dictionary=True)
     cur.execute(
-        """SELECT s.ticker, c.name, c.sector, s.date, s.high, s.low
+        """SELECT s.ticker, c.name, c.sector, s.date, s.open, s.high, s.low, s.close, s.volume
            FROM stocks s JOIN companies c ON s.ticker = c.ticker
            WHERE s.ticker = %s AND s.date BETWEEN %s AND %s
            ORDER BY s.date""",
