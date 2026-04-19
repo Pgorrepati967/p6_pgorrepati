@@ -58,7 +58,28 @@ def add_stock(db, ticker, date):
 
 @app.route("/<db>/api/companies/<ticker>/records", methods=["GET"])
 def get_stocks(db, ticker):
-    return jsonify({"error": "not implemented"}), 501
+    session.set_keyspace(db)
+    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
+    rows = session.execute(query, (ticker,))
+    
+    row_list = list(rows)
+
+    if not row_list or row_list[0].name is None:
+        return jsonify({"error": "Company not found"}), 404
+
+    results = []
+    for row in row_list:
+        if row.date is not None:
+            results.append({
+                "ticker": row.ticker,
+                "name": row.name,
+                "sector": row.sector,
+                "date": row.date.isoformat(),
+                "high": row.high,
+                "low": row.low,
+            })
+
+    return jsonify(results), 200
 
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["GET"])
 def get_stock_date(db, ticker, date):
