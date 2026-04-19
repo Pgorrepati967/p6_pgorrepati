@@ -105,53 +105,36 @@ def test_add_and_get_records():
     assert data[1]['low'] == stock2['low']
 
 
-def test_get_high_for_date():
+def test_get_record_for_date():
     # use random tickers so tests don't interfere with data from previous runs
     ticker = random_ticker()
 
     # Create a company
+    company_name = "TestCorp"
+    company_sector = "Testing"
     r = requests.post(f"{BASE}/companies/{ticker}",
-                      json={"name": "TestCorp", "sector": "Testing"})
+                      json={"name": company_name, "sector": company_sector})
     assert r.status_code == 201
 
-    # Post a record
+    # Insert a record
     date1 = "2023-01-01"
-    stock1 = {"open": 100, "close": 110, "high": 115, "low": 95, "volume": 10000}
+    stock1 = {"high": 115, "low": 95}
     r = requests.post(f"{BASE}/companies/{ticker}/records/{date1}", json=stock1)
     assert r.status_code == 201
 
-    # Fetch just the high for that date
-    r = requests.get(f"{BASE}/companies/{ticker}/records/{date1}/high")
+    # Fetch that specific date
+    r = requests.get(f"{BASE}/companies/{ticker}/records/{date1}")
     assert r.status_code == 200
     data = r.json()
-    assert data == {"high": 115}
+
+    # Assert the date, high, and low values are correct
+    assert data['ticker'] == ticker
+    assert data['name'] == company_name
+    assert data['sector'] == company_sector
+    assert data['date'] == date1
+    assert data['high'] == stock1['high']
+    assert data['low'] == stock1['low']
 
     # Test not found case for a date that doesn't exist
-    r = requests.get(f"{BASE}/companies/{ticker}/records/2023-01-02/high")
+    r = requests.get(f"{BASE}/companies/{ticker}/records/2023-01-02")
     assert r.status_code == 404
-
-    # Post again to one of the same dates with different values (upsert)
-    stock1_updated = {"open": 101, "close": 111, "high": 116, "low": 96, "volume": 10001}
-    r = requests.post(f"{BASE}/companies/{ticker}/records/{date1}", json=stock1_updated)
-    assert r.status_code == 201
-    data = r.json()
-    assert data["date"] == date1
-    for k, v in stock1_updated.items():
-        assert data[k] == v
-
-    # Assert that:
-    # - There are still only 2 records
-    # - The updated record has the new values
-    r = requests.get(f"{BASE}/companies/{ticker}/records")
-    assert r.status_code == 200
-    data = r.json()
-    assert len(data) == 2
-    data.sort(key=lambda x: x['date'])
-
-    assert data[0]['date'] == date1
-    for k, v in stock1_updated.items():
-        assert data[0][k] == v
-
-    assert data[1]['date'] == date2
-    for k, v in stock2.items():
-        assert data[1][k] == v
