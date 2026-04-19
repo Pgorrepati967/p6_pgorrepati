@@ -12,7 +12,26 @@ session = None
 
 @app.route("/<db>/api/companies/<ticker>", methods=["POST"])
 def add_company(db, ticker):
-    return jsonify({"error": "not implemented"}), 501
+    data = request.get_json()
+    if not data or "name" not in data or "sector" not in data:
+        return jsonify({"error": "Missing name or sector"}), 400
+
+    name = data["name"]
+    sector = data["sector"]
+
+    session.set_keyspace(db)
+
+    # Using UPDATE to set static columns. This works even if no rows exist for the partition key.
+    # It's an upsert for the static data.
+    query = "UPDATE stocks SET name = %s, sector = %s WHERE ticker = %s"
+    session.execute(query, (name, sector, ticker))
+
+    response = {
+        "ticker": ticker,
+        "name": name,
+        "sector": sector,
+    }
+    return jsonify(response), 201
 
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
 def add_stock(db, ticker, date):
