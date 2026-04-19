@@ -176,3 +176,186 @@
 
 # 2026-04-19 13:25:04.056327
 +n
+
+# 2026-04-19 15:02:41.878455
++/read rest_test.py
+
+# 2026-04-19 15:02:54.591638
++/add server2.py
+
+# 2026-04-19 15:03:48.257444
++First, create stubs for each six REST endpoints in server2.py that raise or return a “not implemented” error.
+
+# 2026-04-19 15:06:46.969279
++Implement add_company endpoint:
++
++POST /<db>/api/companies/<ticker>
++
++Requirements:
++- Read JSON body containing company info (at least "name").
++- Insert company into Cassandra table {db}.companies.
++- Primary key is ticker.
++- Return 201 on success with {"message": "Company added"}.
++- Return 400 if required fields are missing.
++
++After implementing:
++- Rebuild and restart the service.
++- Run pytest.
++- Clean up any stale containers/processes if needed (docker compose down/up if required).
+
+# 2026-04-19 15:07:31.568483
++y
+
+# 2026-04-19 15:07:31.572146
++/run docker-compose down
+
+# 2026-04-19 15:07:31.572199
++/run docker-compose down
+
+# 2026-04-19 15:07:32.332381
++/run docker-compose up --build -d
+
+# 2026-04-19 15:07:32.332436
++/run docker-compose up --build -d
+
+# 2026-04-19 15:07:32.704216
++/run ./run_tests.sh
+
+# 2026-04-19 15:07:32.704271
++/run ./run_tests.sh
+
+# 2026-04-19 15:07:45.151796
++n
+
+# 2026-04-19 15:08:04.106135
++Implement add_stock endpoint:
++
++POST /<db>/api/companies/<ticker>/records/<date>
++
++Requirements:
++- Read JSON body with: open, high, low, close.
++- Insert record into Cassandra table {db}.stocks.
++- Primary key is (ticker, date).
++- Return 201 on success.
++- Handle errors gracefully (return 500 if insert fails).
++
++After implementing:
++- Rebuild and restart the service.
++- Run pytest.
++- Remove/restart any stale Docker containers if necessary.
+
+# 2026-04-19 15:08:36.333619
++n
+
+# 2026-04-19 15:08:42.194411
++Implement get_stocks endpoint:
++
++GET /<db>/api/companies/<ticker>/records
++
++Requirements:
++- Verify company exists in {db}.companies.
++  - If not found → return 404.
++- Query all rows from {db}.stocks for that ticker.
++- IMPORTANT: Cassandra empty partition returns a row with NULL fields.
++  - If row.date is NULL → ignore it.
++- Return list of:
++  { "date": ..., "open": ..., "high": ..., "low": ..., "close": ... }
++
++After implementing:
++- Rebuild and restart service.
++- Run pytest.
++- Clean container state if tests behave inconsistently (docker compose restart or down/up).
+
+# 2026-04-19 15:09:18.195822
++n
+
+# 2026-04-19 15:09:22.282279
++Implement get_stock_date endpoint:
++
++GET /<db>/api/companies/<ticker>/records/<date>
++
++Requirements:
++- Check if company exists → if not, return 404.
++- Query stock record for (ticker, date).
++- If no record exists → return 404.
++- Return single JSON object with date, open, high, low, close.
++
++After implementing:
++- Rebuild and restart service.
++- Run pytest.
++- Ensure no cached/stale container state is affecting results.
+
+# 2026-04-19 15:10:23.551246
++n
+
+# 2026-04-19 15:10:29.253038
++Implement get_stock_range endpoint:
++
++GET /<db>/api/companies/<ticker>/records/range?start=YYYY-MM-DD&end=YYYY-MM-DD
++
++Requirements:
++- Verify company exists → if not, return 404.
++- Query all stock records for ticker.
++- Filter in Python by date range [start, end].
++- Return list of matching records in same format as get_stocks.
++
++After implementing:
++- Rebuild and restart service.
++- Run pytest.
++- Clear any stale service state if results are inconsistent.
+
+# 2026-04-19 15:11:21.336690
++n
+
+# 2026-04-19 15:12:19.524610
++Implement the endpoint:
++
++GET /<db>/api/companies/<ticker>/records/monthly
++
++Requirements:
++- Check if the company exists in {db}.companies.
++  - If not found → return 404.
++- Query ALL stock records for the given ticker from {db}.stocks.
++- Cassandra does NOT support GROUP BY on clustering columns, so:
++  - You MUST compute monthly averages in Python.
++- For each record:
++  - Extract month in format "YYYY-MM"
++  - Group by month
++  - Compute average of "high" values per month
++
++Edge cases:
++- If Cassandra returns an empty partition row (NULL fields), ignore it.
++- If no valid records exist → return []
++
++Response format MUST match MySQL version exactly:
++[
++  {"month": "YYYY-MM", "avg_high": ...},
++  ...
++]
++
++After implementing:
++- Rebuild and restart the service if needed.
++- Run pytest.
++- Fix any mismatches in formatting, ordering, or float precision if tests fail.
+
+# 2026-04-19 15:13:12.036078
++n
+
+# 2026-04-19 15:13:32.516937
++Run full test suite and fix any failing cases.
++
++Check:
++- Cassandra NULL empty partition handling is correct
++- 404 vs empty list behavior is correct
++- Date filtering in range query is correct
++- Output matches MySQL API exactly
++- No extra fields in responses
++- No stale container/cache issues affecting results
++
++After finishing:
++- Rebuild and restart all services cleanly (docker compose down && up if needed)
++- Run pytest until all tests pass
++- Ensure environment is fully reset and stable
+
+# 2026-04-19 15:17:33.310383
++n
