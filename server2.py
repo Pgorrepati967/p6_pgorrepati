@@ -151,7 +151,37 @@ def get_stock_range(db, ticker):
 
 @app.route("/<db>/api/companies/<ticker>/records/monthly", methods=["GET"])
 def get_stock_monthly(db, ticker):
-    return jsonify({"error": "not implemented"}), 501
+    session.set_keyspace(db)
+    query = "SELECT date, high, name FROM stocks WHERE ticker = %s"
+    rows = session.execute(query, (ticker,))
+
+    row_list = list(rows)
+
+    if not row_list or row_list[0].name is None:
+        return jsonify({"error": "Company not found"}), 404
+
+    valid_records = [row for row in row_list if row.date is not None]
+
+    if not valid_records:
+        return jsonify({"error": "No records found for ticker"}), 404
+
+    monthly_data = {}
+    for row in valid_records:
+        month_str = row.date.strftime('%Y-%m')
+        if month_str not in monthly_data:
+            monthly_data[month_str] = {"sum": 0, "count": 0}
+        monthly_data[month_str]["sum"] += row.high
+        monthly_data[month_str]["count"] += 1
+
+    results = []
+    for month in sorted(monthly_data.keys()):
+        avg_high = monthly_data[month]["sum"] / monthly_data[month]["count"]
+        results.append({
+            "month": month,
+            "avg_high": avg_high
+        })
+
+    return jsonify(results), 200
 
 if __name__ == "__main__":
     for _ in range(30):
