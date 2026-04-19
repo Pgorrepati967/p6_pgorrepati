@@ -40,8 +40,8 @@ def add_stock(db, ticker, date):
     if not data or "high" not in data or "low" not in data:
         return jsonify({"error": "Missing high or low"}), 400
 
-    high = data["high"]
-    low = data["low"]
+    high = float(data["high"])
+    low = float(data["low"])
 
     try:
         session.set_keyspace(db)
