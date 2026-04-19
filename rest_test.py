@@ -138,3 +138,61 @@ def test_get_record_for_date():
     # Test not found case for a date that doesn't exist
     r = requests.get(f"{BASE}/companies/{ticker}/records/2023-01-02")
     assert r.status_code == 404
+
+
+def test_get_records_for_range():
+    # use random tickers so tests don't interfere with data from previous runs
+    ticker = random_ticker()
+
+    # Create a company
+    company_name = "RangeCorp"
+    company_sector = "Ranges"
+    r = requests.post(f"{BASE}/companies/{ticker}",
+                      json={"name": company_name, "sector": company_sector})
+    assert r.status_code == 201
+
+    # Insert at least 3 dates across different ranges
+    dates = ["2023-01-10", "2023-01-20", "2023-01-30"]
+    stocks = [
+        {"high": 100, "low": 90},
+        {"high": 110, "low": 100},
+        {"high": 120, "low": 110},
+    ]
+
+    for date, stock in zip(dates, stocks):
+        r = requests.post(f"{BASE}/companies/{ticker}/records/{date}", json=stock)
+        assert r.status_code == 201
+
+    # Query a specific date range and assert only the correct subset is returned
+    start = "2023-01-15"
+    end = "2023-01-25"
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?start={start}&end={end}")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]['date'] == dates[1]
+    assert data[0]['high'] == stocks[1]['high']
+    assert data[0]['low'] == stocks[1]['low']
+
+    # Query a range that includes all records
+    start = "2023-01-01"
+    end = "2023-01-31"
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?start={start}&end={end}")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 3
+    assert data[0]['date'] == dates[0]
+    assert data[1]['date'] == dates[1]
+    assert data[2]['date'] == dates[2]
+
+    # Query a range with no results
+    start = "2023-02-01"
+    end = "2023-02-28"
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?start={start}&end={end}")
+    assert r.status_code == 404
+
+    # Test missing query params
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?start=2023-01-01")
+    assert r.status_code == 400
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?end=2023-01-31")
+    assert r.status_code == 400
