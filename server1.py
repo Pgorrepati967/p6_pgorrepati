@@ -146,6 +146,30 @@ def get_stock_date(db, ticker, date):
 
 
 # -------------------------
+# GET /api/companies/<ticker>/records/<date>/high
+# Returns the high price for a single day
+# -------------------------
+@app.route("/<db>/api/companies/<ticker>/records/<date>/high", methods=["GET"])
+def get_stock_date_high(db, ticker, date):
+    conn = get_db(db)
+    cur  = conn.cursor(dictionary=True)
+    cur.execute(
+        """SELECT s.high
+           FROM stocks s
+           WHERE s.ticker = %s AND s.date = %s""",
+        (ticker, date),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row is None:
+        return jsonify({"error": "not found"}), 404
+
+    return jsonify({"high": row["high"]})
+
+
+# -------------------------
 # GET /api/stocks/<ticker>/range?start=YYYY-MM-DD&end=YYYY-MM-DD
 # Returns rows in a date range, ordered by date
 # -------------------------

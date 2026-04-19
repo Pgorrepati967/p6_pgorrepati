@@ -71,6 +71,32 @@ def test_add_and_get_records():
     for k, v in stock2.items():
         assert data[1][k] == v
 
+
+def test_get_high_for_date():
+    # use random tickers so tests don't interfere with data from previous runs
+    ticker = random_ticker()
+
+    # Create a company
+    r = requests.post(f"{BASE}/companies/{ticker}",
+                      json={"name": "TestCorp", "sector": "Testing"})
+    assert r.status_code == 201
+
+    # Post a record
+    date1 = "2023-01-01"
+    stock1 = {"open": 100, "close": 110, "high": 115, "low": 95, "volume": 10000}
+    r = requests.post(f"{BASE}/companies/{ticker}/records/{date1}", json=stock1)
+    assert r.status_code == 201
+
+    # Fetch just the high for that date
+    r = requests.get(f"{BASE}/companies/{ticker}/records/{date1}/high")
+    assert r.status_code == 200
+    data = r.json()
+    assert data == {"high": 115}
+
+    # Test not found case for a date that doesn't exist
+    r = requests.get(f"{BASE}/companies/{ticker}/records/2023-01-02/high")
+    assert r.status_code == 404
+
     # Post again to one of the same dates with different values (upsert)
     stock1_updated = {"open": 101, "close": 111, "high": 116, "low": 96, "volume": 10001}
     r = requests.post(f"{BASE}/companies/{ticker}/records/{date1}", json=stock1_updated)
