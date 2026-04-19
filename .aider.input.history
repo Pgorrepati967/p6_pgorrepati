@@ -1,0 +1,178 @@
+
+# 2026-04-19 12:55:30.332412
++y
+
+# 2026-04-19 12:56:03.588749
++/add server1.py
++
+
+# 2026-04-19 12:56:08.987224
++What REST API endpoints does this server expose, and how do they map to the MySQL tables?
+
+# 2026-04-19 12:56:59.318551
++How does the /prod vs /test URL prefix determine which database is queried?
+
+# 2026-04-19 12:58:27.845521
++/add rest_test.py
+
+# 2026-04-19 12:58:32.559504
++/read server1.py
+
+# 2026-04-19 12:59:06.360463
++Which REST endpoints are covered by tests, and which are not?
+
+# 2026-04-19 13:04:28.690223
++/add rest_test.py
+
+# 2026-04-19 13:05:01.040820
++Add a test for POST /<db>/api/companies/<ticker>/records/<date>.
++
++The test should:
++1. Create a company
++2. Post 2 different dates with different values
++3. Fetch all records and assert both exist
++4. Post again to one of the same dates with different values (upsert)
++5. Assert that:
++   - There are still only 2 records
++   - The updated record has the new values
+
+# 2026-04-19 13:06:36.450833
++n
+
+# 2026-04-19 13:06:50.724327
++run shell command bash rum_tests.sh
+
+# 2026-04-19 13:07:01.610548
++run shell command bash run_tests.sh
+
+# 2026-04-19 13:07:44.035049
++run bash run_tests.sh
+
+# 2026-04-19 13:08:35.929642
++n
+
+# 2026-04-19 13:08:41.256958
++y
+
+# 2026-04-19 13:08:41.260073
++/run chmod +x run_tests.sh
+
+# 2026-04-19 13:08:41.260106
++/run chmod +x run_tests.sh
+
+# 2026-04-19 13:08:41.510096
++/run ./run_tests.sh
+
+# 2026-04-19 13:08:41.510154
++/run ./run_tests.sh
+
+# 2026-04-19 13:08:45.900929
++y
+
+# 2026-04-19 13:11:59.075521
++add server1.py and rest_test.py
+
+# 2026-04-19 13:12:02.443646
++y
+
+# 2026-04-19 13:13:59.506859
++n
+
+# 2026-04-19 13:14:07.855456
++no changes should i been made
+
+# 2026-04-19 13:14:49.971651
++n
+
+# 2026-04-19 13:16:54.780977
++/add rest_test.py
+
+# 2026-04-19 13:16:59.430151
++/read server1.py
+
+# 2026-04-19 13:17:18.580271
++Which REST endpoints are covered by tests, and which are not?
+
+# 2026-04-19 13:17:50.473014
++Add a test for POST /<db>/api/companies/<ticker>/records/<date>.
++
++The test should:
++1. Create a company
++2. Post 2 different dates with different values
++3. Fetch all records and assert both exist
++4. Post again to one of the same dates with different values (upsert)
++5. Assert that:
++   - There are still only 2 records
++   - The updated record has the new values
+
+# 2026-04-19 13:19:05.388020
++y
+
+# 2026-04-19 13:20:09.346349
++Add a test for GET /<db>/api/companies/<ticker>/records/<date>.
++
++The test should:
++1. Create a company
++2. Insert a record
++3. Fetch that specific date
++4. Assert the date, high, and low values are correct
+
+# 2026-04-19 13:21:01.936533
++n
+
+# 2026-04-19 13:21:03.767231
++Add a test for GET /<db>/api/companies/<ticker>/records/range.
++
++The test should:
++1. Create a company
++2. Insert at least 3 dates across different ranges
++3. Query a specific date range
++4. Assert only the correct subset of dates is returned
+
+# 2026-04-19 13:21:25.806087
++n
+
+# 2026-04-19 13:21:30.770683
++Add a test for GET /<db>/api/companies/<ticker>/records/range.
++
++The test should:
++1. Create a company
++2. Insert at least 3 dates across different ranges
++3. Query a specific date range
++4. Assert only the correct subset of dates is returned
+
+# 2026-04-19 13:22:15.405846
++n
+
+# 2026-04-19 13:22:35.777021
++Add a test for GET /<db>/api/companies/<ticker>/records/monthly.
++
++The test should:
++1. Create a company
++2. Insert multiple records in the same month
++3. Insert records in a different month
++4. Assert the monthly average high is computed correctly
+
+# 2026-04-19 13:23:03.296510
++n
+
+# 2026-04-19 13:23:10.121911
++Which REST endpoints are covered by tests, and which are not?
+
+# 2026-04-19 13:23:52.961712
++how many tests are there
+
+# 2026-04-19 13:24:33.332683
++You can run the tests with "bash run_test.sh".  Run them now.  
+
+# 2026-04-19 13:24:55.553960
++y
+
+# 2026-04-19 13:24:55.557098
++/run bash run_test.sh
+
+# 2026-04-19 13:24:55.557139
++/run bash run_test.sh
+
+# 2026-04-19 13:25:04.056327
++n
