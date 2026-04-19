@@ -83,7 +83,30 @@ def get_stocks(db, ticker):
 
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["GET"])
 def get_stock_date(db, ticker, date):
-    return jsonify({"error": "not implemented"}), 501
+    session.set_keyspace(db)
+
+    # Check if company exists
+    company_query = "SELECT name FROM stocks WHERE ticker = %s LIMIT 1"
+    company_row = session.execute(company_query, (ticker,)).one()
+    if not company_row or company_row.name is None:
+        return jsonify({"error": "Company not found"}), 404
+
+    # Query for the specific stock record
+    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s AND date = %s"
+    row = session.execute(query, (ticker, date)).one()
+
+    if not row:
+        return jsonify({"error": "Record not found"}), 404
+
+    result = {
+        "ticker": row.ticker,
+        "name": row.name,
+        "sector": row.sector,
+        "date": row.date.isoformat(),
+        "high": row.high,
+        "low": row.low,
+    }
+    return jsonify(result), 200
 
 @app.route("/<db>/api/companies/<ticker>/records/range", methods=["GET"])
 def get_stock_range(db, ticker):
