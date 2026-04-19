@@ -196,3 +196,37 @@ def test_get_records_for_range():
     assert r.status_code == 400
     r = requests.get(f"{BASE}/companies/{ticker}/records/range?end=2023-01-31")
     assert r.status_code == 400
+
+
+def test_get_records_for_range_inclusive_boundaries():
+    # use random tickers so tests don't interfere with data from previous runs
+    ticker = random_ticker()
+
+    # Create a company
+    company_name = "BoundaryCorp"
+    company_sector = "Boundaries"
+    r = requests.post(f"{BASE}/companies/{ticker}",
+                      json={"name": company_name, "sector": company_sector})
+    assert r.status_code == 201
+
+    # Insert at least 3 dates across different ranges
+    dates = ["2023-02-10", "2023-02-20", "2023-02-28"]
+    stocks = [
+        {"high": 100, "low": 90},
+        {"high": 110, "low": 100},
+        {"high": 120, "low": 110},
+    ]
+
+    for date, stock in zip(dates, stocks):
+        r = requests.post(f"{BASE}/companies/{ticker}/records/{date}", json=stock)
+        assert r.status_code == 201
+
+    # Query a specific date range with inclusive boundaries
+    start = "2023-02-10"
+    end = "2023-02-20"
+    r = requests.get(f"{BASE}/companies/{ticker}/records/range?start={start}&end={end}")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 2
+    assert data[0]['date'] == dates[0]
+    assert data[1]['date'] == dates[1]
