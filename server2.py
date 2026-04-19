@@ -10,7 +10,29 @@ project = os.environ.get("PROJECT", "p6")
 nodes = [f"{project}-cassandra-1", f"{project}-cassandra-2", f"{project}-cassandra-3"]
 session = None
 
-# TODO: endpoints
+@app.route("/<db>/api/companies/<ticker>", methods=["POST"])
+def add_company(db, ticker):
+    return jsonify({"error": "not implemented"}), 501
+
+@app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
+def add_stock(db, ticker, date):
+    return jsonify({"error": "not implemented"}), 501
+
+@app.route("/<db>/api/companies/<ticker>/records", methods=["GET"])
+def get_stocks(db, ticker):
+    return jsonify({"error": "not implemented"}), 501
+
+@app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["GET"])
+def get_stock_date(db, ticker, date):
+    return jsonify({"error": "not implemented"}), 501
+
+@app.route("/<db>/api/companies/<ticker>/records/range", methods=["GET"])
+def get_stock_range(db, ticker):
+    return jsonify({"error": "not implemented"}), 501
+
+@app.route("/<db>/api/companies/<ticker>/records/monthly", methods=["GET"])
+def get_stock_monthly(db, ticker):
+    return jsonify({"error": "not implemented"}), 501
 
 if __name__ == "__main__":
     for _ in range(30):
