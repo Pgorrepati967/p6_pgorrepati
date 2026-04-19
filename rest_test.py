@@ -230,3 +230,50 @@ def test_get_records_for_range_inclusive_boundaries():
     assert len(data) == 2
     assert data[0]['date'] == dates[0]
     assert data[1]['date'] == dates[1]
+
+
+def test_get_monthly_records():
+    # use random tickers so tests don't interfere with data from previous runs
+    ticker = random_ticker()
+
+    # Create a company
+    company_name = "MonthlyCorp"
+    company_sector = "Months"
+    r = requests.post(f"{BASE}/companies/{ticker}",
+                      json={"name": company_name, "sector": company_sector})
+    assert r.status_code == 201
+
+    # Insert multiple records in the same month and a different month
+    records = [
+        ("2023-01-10", {"high": 100, "low": 90}),
+        ("2023-01-20", {"high": 110, "low": 100}),
+        ("2023-02-05", {"high": 120, "low": 110}),
+    ]
+
+    for date, stock in records:
+        r = requests.post(f"{BASE}/companies/{ticker}/records/{date}", json=stock)
+        assert r.status_code == 201
+
+    # Assert the monthly average high is computed correctly
+    r = requests.get(f"{BASE}/companies/{ticker}/records/monthly")
+    assert r.status_code == 200
+    data = r.json()
+
+    assert len(data) == 2
+
+    # The endpoint returns data ordered by month
+    assert data[0]['month'] == '2023-01'
+    # avg_high for Jan is (100 + 110) / 2 = 105.0
+    assert data[0]['avg_high'] == 105.0
+
+    assert data[1]['month'] == '2023-02'
+    # avg_high for Feb is 120 / 1 = 120.0
+    assert data[1]['avg_high'] == 120.0
+
+    # Test not found for a ticker with no records
+    ticker_no_records = random_ticker()
+    r = requests.post(f"{BASE}/companies/{ticker_no_records}",
+                      json={"name": "NoRecordsCorp", "sector": "Empty"})
+    assert r.status_code == 201
+    r = requests.get(f"{BASE}/companies/{ticker_no_records}/records/monthly")
+    assert r.status_code == 404
