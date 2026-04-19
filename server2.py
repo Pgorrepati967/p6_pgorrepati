@@ -1,6 +1,7 @@
 import os, sys
 import time
 from flask import Flask, request, jsonify
+from datetime import datetime
 from cassandra.cluster import Cluster
 from cassandra.query import ConsistencyLevel
 
@@ -110,7 +111,43 @@ def get_stock_date(db, ticker, date):
 
 @app.route("/<db>/api/companies/<ticker>/records/range", methods=["GET"])
 def get_stock_range(db, ticker):
-    return jsonify({"error": "not implemented"}), 501
+    start = request.args.get('start')
+    end = request.args.get('end')
+
+    if not start or not end:
+        return jsonify({"error": "Missing start or end parameter"}), 400
+
+    try:
+        start_date = datetime.strptime(start, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"error": "Invalid date format, use YYYY-MM-DD"}), 400
+
+    session.set_keyspace(db)
+    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
+    rows = session.execute(query, (ticker,))
+
+    row_list = list(rows)
+
+    if not row_list or row_list[0].name is None:
+        return jsonify({"error": "Company not found"}), 404
+
+    results = []
+    for row in row_list:
+        if row.date is not None and start_date <= row.date <= end_date:
+            results.append({
+                "ticker": row.ticker,
+                "name": row.name,
+                "sector": row.sector,
+                "date": row.date.isoformat(),
+                "high": row.high,
+                "low": row.low,
+            })
+
+    if not results:
+        return jsonify({"error": "No records found in range"}), 404
+
+    return jsonify(results), 200
 
 @app.route("/<db>/api/companies/<ticker>/records/monthly", methods=["GET"])
 def get_stock_monthly(db, ticker):
