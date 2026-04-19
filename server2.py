@@ -25,7 +25,7 @@ def add_company(db, ticker):
     # Using UPDATE to set static columns. This works even if no rows exist for the partition key.
     # It's an upsert for the static data.
     query = "UPDATE stocks SET name = %s, sector = %s WHERE ticker = %s"
-    session.execute(query, (name, sector, ticker))
+    session.execute(query, (name, sector, ticker), consistency_level=ConsistencyLevel.QUORUM)
 
     response = {
         "ticker": ticker,
@@ -46,7 +46,7 @@ def add_stock(db, ticker, date):
     try:
         session.set_keyspace(db)
         query = "INSERT INTO stocks (ticker, date, high, low) VALUES (%s, %s, %s, %s)"
-        session.execute(query, (ticker, date, high, low))
+        session.execute(query, (ticker, date, high, low), consistency_level=ConsistencyLevel.QUORUM)
 
         response = {
             "ticker": ticker,
@@ -61,7 +61,7 @@ def add_stock(db, ticker, date):
 def get_stocks(db, ticker):
     session.set_keyspace(db)
     query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,))
+    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
     
     row_list = list(rows)
 
@@ -88,13 +88,13 @@ def get_stock_date(db, ticker, date):
 
     # Check if company exists
     company_query = "SELECT name FROM stocks WHERE ticker = %s LIMIT 1"
-    company_row = session.execute(company_query, (ticker,)).one()
+    company_row = session.execute(company_query, (ticker,), consistency_level=ConsistencyLevel.QUORUM).one()
     if not company_row or company_row.name is None:
         return jsonify({"error": "Company not found"}), 404
 
     # Query for the specific stock record
     query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s AND date = %s"
-    row = session.execute(query, (ticker, date)).one()
+    row = session.execute(query, (ticker, date), consistency_level=ConsistencyLevel.QUORUM).one()
 
     if not row:
         return jsonify({"error": "Record not found"}), 404
@@ -125,7 +125,7 @@ def get_stock_range(db, ticker):
 
     session.set_keyspace(db)
     query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,))
+    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
 
     row_list = list(rows)
 
@@ -153,7 +153,7 @@ def get_stock_range(db, ticker):
 def get_stock_monthly(db, ticker):
     session.set_keyspace(db)
     query = "SELECT date, high, name FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,))
+    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
 
     row_list = list(rows)
 
