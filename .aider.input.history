@@ -359,3 +359,402 @@
 
 # 2026-04-19 15:17:33.310383
 +n
+
+# 2026-04-19 15:42:24.136919
++/read rest_test.py
+
+# 2026-04-19 15:42:55.350244
++/add server2.py
+
+# 2026-04-19 15:43:41.286678
++whenever i run rest_test.py on server2.py I keep getting an assertionError assesrt 500. Can you check what is the problem and fix it
+
+# 2026-04-19 15:46:05.228444
++/add server2.py
+
+# 2026-04-19 15:46:14.344239
++/read rest_test.py
+
+# 2026-04-19 15:46:25.554947
++/read run_tests.sh
+
+# 2026-04-19 15:46:56.077952
++whenever i use run_tests.sh to use rest_test.py on server2.py i get these error:============================= test session starts ==============================
++platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python3
++cachedir: .pytest_cache
++rootdir: /
++collecting ... collected 6 items
++
++rest_test.py::test_add_and_get_company FAILED                            [ 16%]
++rest_test.py::test_add_and_get_records FAILED                            [ 33%]
++rest_test.py::test_get_record_for_date FAILED                            [ 50%]
++rest_test.py::test_get_records_for_range FAILED                          [ 66%]
++rest_test.py::test_get_records_for_range_inclusive_boundaries FAILED     [ 83%]
++rest_test.py::test_get_monthly_records FAILED                            [100%]
++
++=================================== FAILURES ===================================
++___________________________ test_add_and_get_company ___________________________
++
++    def test_add_and_get_company():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": "MegaCorp", "sector": "Everything"})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:17: AssertionError
++___________________________ test_add_and_get_records ___________________________
++
++    def test_add_and_get_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:42: AssertionError
++___________________________ test_get_record_for_date ___________________________
++
++    def test_get_record_for_date():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:117: AssertionError
++__________________________ test_get_records_for_range __________________________
++
++    def test_get_records_for_range():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "RangeCorp"
++        company_sector = "Ranges"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:152: AssertionError
++_______________ test_get_records_for_range_inclusive_boundaries ________________
++
++    def test_get_records_for_range_inclusive_boundaries():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "BoundaryCorp"
++        company_sector = "Boundaries"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:210: AssertionError
++___________________________ test_get_monthly_records ___________________________
++
++    def test_get_monthly_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "MonthlyCorp"
++        company_sector = "Months"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:244: AssertionError
++=========================== short test summary info ============================
++FAILED rest_test.py::test_add_and_get_company - assert 500 == 201
++FAILED rest_test.py::test_add_and_get_records - assert 500 == 201
++FAILED rest_test.py::test_get_record_for_date - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range_inclusive_boundaries - assert...
++FAILED rest_test.py::test_get_monthly_records - assert 500 == 201
++============================== 6 failed in 0.60s ===============================
++
+
+# 2026-04-20 09:33:17.090567
++/read rest_test.py
+
+# 2026-04-20 09:33:28.100473
++/add server2.py
+
+# 2026-04-20 09:34:25.845378
++whenever i run rest_test.py on server2.py it returns this:============================= test session starts ==============================
++platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python3
++cachedir: .pytest_cache
++rootdir: /
++collecting ... collected 6 items
++
++rest_test.py::test_add_and_get_company FAILED                            [ 16%]
++rest_test.py::test_add_and_get_records FAILED                            [ 33%]
++rest_test.py::test_get_record_for_date FAILED                            [ 50%]
++rest_test.py::test_get_records_for_range FAILED                          [ 66%]
++rest_test.py::test_get_records_for_range_inclusive_boundaries FAILED     [ 83%]
++rest_test.py::test_get_monthly_records FAILED                            [100%]
++
++=================================== FAILURES ===================================
++___________________________ test_add_and_get_company ___________________________
++
++    def test_add_and_get_company():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": "MegaCorp", "sector": "Everything"})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:17: AssertionError
++___________________________ test_add_and_get_records ___________________________
++
++    def test_add_and_get_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:42: AssertionError
++___________________________ test_get_record_for_date ___________________________
++
++    def test_get_record_for_date():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:117: AssertionError
++__________________________ test_get_records_for_range __________________________
++
++    def test_get_records_for_range():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "RangeCorp"
++        company_sector = "Ranges"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:152: AssertionError
++_______________ test_get_records_for_range_inclusive_boundaries ________________
++
++    def test_get_records_for_range_inclusive_boundaries():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "BoundaryCorp"
++        company_sector = "Boundaries"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:210: AssertionError
++___________________________ test_get_monthly_records ___________________________
++
++    def test_get_monthly_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "MonthlyCorp"
++        company_sector = "Months"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:244: AssertionError
++=========================== short test summary info ============================
++FAILED rest_test.py::test_add_and_get_company - assert 500 == 201
++FAILED rest_test.py::test_add_and_get_records - assert 500 == 201
++FAILED rest_test.py::test_get_record_for_date - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range_inclusive_boundaries - assert...
++FAILED rest_test.py::test_get_monthly_records - assert 500 == 201
++============================== 6 failed in 0.90s ===============================                                                                            can you read and find the Assertion error and fix the code
+
+# 2026-04-20 09:42:40.411063
++/read rest_test.py
+
+# 2026-04-20 09:42:47.006086
++/add server2.py
+
+# 2026-04-20 09:43:01.452438
++are you connected to vertex ai 
+
+# 2026-04-20 09:45:19.254345
++ok, when I run rest_test.py on sever2.py I am getting this message:           =================================== FAILURES ===================================
++___________________________ test_add_and_get_company ___________________________
++
++    def test_add_and_get_company():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": "MegaCorp", "sector": "Everything"})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:17: AssertionError
++___________________________ test_add_and_get_records ___________________________
++
++    def test_add_and_get_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:42: AssertionError
++___________________________ test_get_record_for_date ___________________________
++
++    def test_get_record_for_date():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "TestCorp"
++        company_sector = "Testing"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:117: AssertionError
++__________________________ test_get_records_for_range __________________________
++
++    def test_get_records_for_range():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "RangeCorp"
++        company_sector = "Ranges"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:152: AssertionError
++_______________ test_get_records_for_range_inclusive_boundaries ________________
++
++    def test_get_records_for_range_inclusive_boundaries():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "BoundaryCorp"
++        company_sector = "Boundaries"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:210: AssertionError
++___________________________ test_get_monthly_records ___________________________
++
++    def test_get_monthly_records():
++        # use random tickers so tests don't interfere with data from previous runs
++        ticker = random_ticker()
++    
++        # Create a company
++        company_name = "MonthlyCorp"
++        company_sector = "Months"
++        r = requests.post(f"{BASE}/companies/{ticker}",
++                          json={"name": company_name, "sector": company_sector})
++>       assert r.status_code == 201
++E       assert 500 == 201
++E        +  where 500 = <Response [500]>.status_code
++
++rest_test.py:244: AssertionError
++=========================== short test summary info ============================
++FAILED rest_test.py::test_add_and_get_company - assert 500 == 201
++FAILED rest_test.py::test_add_and_get_records - assert 500 == 201
++FAILED rest_test.py::test_get_record_for_date - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range_inclusive_boundaries - assert...
++FAILED rest_test.py::test_get_monthly_records - assert 500 == 201
++============================== 6 failed in 0.69s ===============================                                                                            PLease fix the assertion error and then debug any changes you need to make for server2.py to work properly
+
+# 2026-04-20 09:47:21.076434
++when I run rest_test.py on server2.py I keep getting this message:            FAILED rest_test.py::test_add_and_get_company - assert 500 == 201
++FAILED rest_test.py::test_add_and_get_records - assert 500 == 201
++FAILED rest_test.py::test_get_record_for_date - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range_inclusive_boundaries - assert...
++FAILED rest_test.py::test_get_monthly_records - assert 500 == 201
++Please fix the assertion error and anything else the might need to change
+
+# 2026-04-20 09:48:53.230711
++/read server1.py
+
+# 2026-04-20 09:50:05.649575
++when I run rest_test.py on server1.py everything passes. When i run it on server2.py I keep getting this message:                                           FAILED rest_test.py::test_add_and_get_company - assert 500 == 201
++FAILED rest_test.py::test_add_and_get_records - assert 500 == 201
++FAILED rest_test.py::test_get_record_for_date - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range - assert 500 == 201
++FAILED rest_test.py::test_get_records_for_range_inclusive_boundaries - assert...
++FAILED rest_test.py::test_get_monthly_records - assert 500 == 201
++Please fix the assertion error and anything else the might need to change so that server2.py passes all rest_test.py
+
+# 2026-04-20 11:55:06.223713
++n

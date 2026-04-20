@@ -3,7 +3,6 @@ import time
 from flask import Flask, request, jsonify
 from datetime import datetime
 from cassandra.cluster import Cluster
-from cassandra.query import ConsistencyLevel
 
 app = Flask(__name__)
 
@@ -11,197 +10,245 @@ project = os.environ.get("PROJECT", "p6")
 nodes = [f"{project}-cassandra-1", f"{project}-cassandra-2", f"{project}-cassandra-3"]
 session = None
 
+DUMMY_DATE = datetime(1900, 1, 1).date()
+
+
+# -------------------------
+# POST /companies
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>", methods=["POST"])
 def add_company(db, ticker):
     data = request.get_json()
     if not data or "name" not in data or "sector" not in data:
         return jsonify({"error": "Missing name or sector"}), 400
 
-    name = data["name"]
-    sector = data["sector"]
+    session.set_keyspace(db)
 
-    try:
-        session.set_keyspace(db)
+    # Insert dummy row to create partition
+    session.execute(
+        "INSERT INTO stocks (ticker, date, name, sector) VALUES (%s, %s, %s, %s)",
+        (ticker, DUMMY_DATE, data["name"], data["sector"])
+    )
 
-        # Using UPDATE to set static columns. This works even if no rows exist for the partition key.
-        # It's an upsert for the static data.
-        query = "UPDATE stocks SET name = %s, sector = %s WHERE ticker = %s"
-        session.execute(query, (name, sector, ticker), consistency_level=ConsistencyLevel.QUORUM)
+    return jsonify({
+        "ticker": ticker,
+        "name": data["name"],
+        "sector": data["sector"]
+    }), 201
 
-        response = {
-            "ticker": ticker,
-            "name": name,
-            "sector": sector,
-        }
-        return jsonify(response), 201
-    except Exception as e:
-        print(f"Error in add_company: {e}")
-        return jsonify({"error": "Failed to add/update company"}), 500
 
+# -------------------------
+# POST stock record
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
 def add_stock(db, ticker, date):
     data = request.get_json()
     if not data or "high" not in data or "low" not in data:
         return jsonify({"error": "Missing high or low"}), 400
 
-    high = float(data["high"])
-    low = float(data["low"])
+    session.set_keyspace(db)
 
-    try:
-        session.set_keyspace(db)
-        query = "INSERT INTO stocks (ticker, date, high, low) VALUES (%s, %s, %s, %s)"
-        session.execute(query, (ticker, date, high, low), consistency_level=ConsistencyLevel.QUORUM)
+    date_obj = datetime.strptime(date, "%Y-%m-%d").date()
 
-        response = {
-            "ticker": ticker,
-            "date": date,
-        }
-        return jsonify(response), 201
-    except Exception as e:
-        print(f"Error inserting stock data: {e}")
-        return jsonify({"error": "Failed to insert stock record"}), 500
+    session.execute(
+        "INSERT INTO stocks (ticker, date, high, low) VALUES (%s, %s, %s, %s)",
+        (ticker, date_obj, float(data["high"]), float(data["low"]))
+    )
 
+    return jsonify({"ticker": ticker, "date": date}), 201
+
+
+# -------------------------
+# GET all records
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>/records", methods=["GET"])
 def get_stocks(db, ticker):
     session.set_keyspace(db)
-    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
-    
-    row_list = list(rows)
 
-    if not row_list or row_list[0].name is None:
-        return jsonify({"error": "Company not found"}), 404
+    rows = list(session.execute(
+        "SELECT * FROM stocks WHERE ticker = %s",
+        (ticker,)
+    ))
+
+    if not rows:
+        return jsonify({"error": "not found"}), 404
 
     results = []
-    for row in row_list:
-        if row.date is not None:
-            results.append({
-                "ticker": row.ticker,
-                "name": row.name,
-                "sector": row.sector,
-                "date": row.date.isoformat(),
-                "high": row.high,
-                "low": row.low,
-            })
+    for r in rows:
+        if (
+            r.date is None
+            or r.date == DUMMY_DATE
+            or r.high is None
+            or r.low is None
+        ):
+            continue
 
-    return jsonify(results), 200
+        results.append({
+            "ticker": ticker,
+            "name": r.name,
+            "sector": r.sector,
+            "date": str(r.date),
+            "high": r.high,
+            "low": r.low
+        })
 
+    if not results:
+        return jsonify({"error": "not found"}), 404
+
+    results.sort(key=lambda x: x["date"])
+    return jsonify(results)
+
+
+# -------------------------
+# GET one date
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["GET"])
 def get_stock_date(db, ticker, date):
     session.set_keyspace(db)
 
-    # Check if company exists
-    company_query = "SELECT name FROM stocks WHERE ticker = %s LIMIT 1"
-    company_row = session.execute(company_query, (ticker,), consistency_level=ConsistencyLevel.QUORUM).one()
-    if not company_row or company_row.name is None:
-        return jsonify({"error": "Company not found"}), 404
+    date_obj = datetime.strptime(date, "%Y-%m-%d").date()
 
-    # Query for the specific stock record
-    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s AND date = %s"
-    row = session.execute(query, (ticker, date), consistency_level=ConsistencyLevel.QUORUM).one()
+    row = session.execute(
+        "SELECT * FROM stocks WHERE ticker = %s AND date = %s",
+        (ticker, date_obj)
+    ).one()
 
-    if not row:
-        return jsonify({"error": "Record not found"}), 404
+    if (
+        not row
+        or row.date is None
+        or row.date == DUMMY_DATE
+        or row.high is None
+        or row.low is None
+    ):
+        return jsonify({"error": "not found"}), 404
 
-    result = {
-        "ticker": row.ticker,
+    return jsonify({
+        "ticker": ticker,
         "name": row.name,
         "sector": row.sector,
-        "date": row.date.isoformat(),
+        "date": str(row.date),
         "high": row.high,
-        "low": row.low,
-    }
-    return jsonify(result), 200
+        "low": row.low
+    })
 
+
+# -------------------------
+# GET range
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/range", methods=["GET"])
 def get_stock_range(db, ticker):
-    start = request.args.get('start')
-    end = request.args.get('end')
+    start = request.args.get("start")
+    end = request.args.get("end")
 
     if not start or not end:
-        return jsonify({"error": "Missing start or end parameter"}), 400
+        return jsonify({"error": "Missing params"}), 400
 
-    try:
-        start_date = datetime.strptime(start, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({"error": "Invalid date format, use YYYY-MM-DD"}), 400
+    start = datetime.strptime(start, "%Y-%m-%d").date()
+    end = datetime.strptime(end, "%Y-%m-%d").date()
 
     session.set_keyspace(db)
-    query = "SELECT ticker, date, name, sector, high, low FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
 
-    row_list = list(rows)
+    rows = list(session.execute(
+        "SELECT * FROM stocks WHERE ticker = %s",
+        (ticker,)
+    ))
 
-    if not row_list or row_list[0].name is None:
-        return jsonify({"error": "Company not found"}), 404
+    if not rows:
+        return jsonify({"error": "not found"}), 404
 
+    name = None
+    sector = None
     results = []
-    for row in row_list:
-        if row.date is not None and start_date <= row.date <= end_date:
+
+    for r in rows:
+        # capture static columns safely
+        if r.name:
+            name = r.name
+        if r.sector:
+            sector = r.sector
+
+        if (
+            r.date is None
+            or r.date == DUMMY_DATE
+            or r.high is None
+            or r.low is None
+        ):
+            continue
+
+        if start <= r.date <= end:
             results.append({
-                "ticker": row.ticker,
-                "name": row.name,
-                "sector": row.sector,
-                "date": row.date.isoformat(),
-                "high": row.high,
-                "low": row.low,
+                "ticker": ticker,
+                "name": name,
+                "sector": sector,
+                "date": str(r.date),
+                "high": r.high,
+                "low": r.low
             })
 
     if not results:
-        return jsonify({"error": "No records found in range"}), 404
+        return jsonify({"error": "not found"}), 404
 
-    return jsonify(results), 200
-
+    results.sort(key=lambda x: x["date"])
+    return jsonify(results)
+# -------------------------
+# GET monthly averages
+# -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/monthly", methods=["GET"])
 def get_stock_monthly(db, ticker):
     session.set_keyspace(db)
-    query = "SELECT date, high, name FROM stocks WHERE ticker = %s"
-    rows = session.execute(query, (ticker,), consistency_level=ConsistencyLevel.QUORUM)
 
-    row_list = list(rows)
+    rows = list(session.execute(
+        "SELECT * FROM stocks WHERE ticker = %s",
+        (ticker,)
+    ))
 
-    if not row_list or row_list[0].name is None:
-        return jsonify({"error": "Company not found"}), 404
+    monthly = {}
 
-    valid_records = [row for row in row_list if row.date is not None]
+    for r in rows:
+        if (
+            r.date is None
+            or r.date == DUMMY_DATE
+            or r.high is None
+        ):
+            continue
 
-    if not valid_records:
-        return jsonify({"error": "No records found for ticker"}), 404
+        key = r.date.strftime("%Y-%m")
 
-    monthly_data = {}
-    for row in valid_records:
-        month_str = row.date.strftime('%Y-%m')
-        if month_str not in monthly_data:
-            monthly_data[month_str] = {"sum": 0, "count": 0}
-        monthly_data[month_str]["sum"] += row.high
-        monthly_data[month_str]["count"] += 1
+        if key not in monthly:
+            monthly[key] = {"sum": 0, "count": 0}
 
-    results = []
-    for month in sorted(monthly_data.keys()):
-        avg_high = monthly_data[month]["sum"] / monthly_data[month]["count"]
-        results.append({
-            "month": month,
-            "avg_high": avg_high
+        monthly[key]["sum"] += r.high
+        monthly[key]["count"] += 1
+
+    if not monthly:
+        return jsonify({"error": "not found"}), 404
+
+    result = []
+    for k in sorted(monthly.keys()):
+        avg = monthly[k]["sum"] / monthly[k]["count"]
+        result.append({
+            "month": k,
+            "avg_high": avg
         })
 
-    return jsonify(results), 200
+    return jsonify(result)
 
+
+# -------------------------
+# INIT
+# -------------------------
 if __name__ == "__main__":
     for _ in range(30):
         try:
             cluster = Cluster(nodes)
             session = cluster.connect()
             break
-        except Exception as ex:
-            print(ex)
+        except Exception:
             time.sleep(2)
     else:
-        print("Failed to connect to Cassandra after 30 attempts")
         sys.exit(1)
 
     for ks in ["prod", "test"]:
-
         session.execute(f"""
             CREATE KEYSPACE IF NOT EXISTS {ks}
             WITH replication = {{
@@ -218,11 +265,8 @@ if __name__ == "__main__":
                 date DATE,
                 high DOUBLE,
                 low DOUBLE,
-
-                -- STATIC columns (per partition / per ticker)
                 name TEXT STATIC,
                 sector TEXT STATIC,
-
                 PRIMARY KEY ((ticker), date)
             ) WITH CLUSTERING ORDER BY (date ASC)
         """)
