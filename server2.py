@@ -4,16 +4,22 @@ import traceback
 from flask import Flask, request, jsonify
 from datetime import datetime
 from cassandra.cluster import Cluster
+from cassandra import ConsistencyLevel
 
 app = Flask(__name__)
 
 project = os.environ.get("PROJECT", "p6")
-nodes = [f"{project}-cassandra-1", f"{project}-cassandra-2", f"{project}-cassandra-3"]
+nodes = [
+    f"{project}-cassandra-1",
+    f"{project}-cassandra-2",
+    f"{project}-cassandra-3"
+]
+
 session = None
 
 
 # -------------------------
-# GLOBAL ERROR HANDLER
+# ERROR HANDLER
 # -------------------------
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -25,48 +31,46 @@ def handle_exception(e):
 
 
 # -------------------------
-# helpers
+# HELPERS
 # -------------------------
-def cassandra_to_date(cass_date):
-    """Convert Cassandra Date -> Python date"""
+def to_pydate(cass_date):
+    """Convert Cassandra DATE -> Python date safely"""
     if cass_date is None:
         return None
     return cass_date.date()
 
 
-def is_valid_row(r):
+def is_stock_row(r):
+    """Valid stock record (exclude static-only dummy row)"""
+    d = to_pydate(r.date)
     return (
-        getattr(r, "date", None) is not None
-        and getattr(r, "high", None) is not None
-        and getattr(r, "low", None) is not None
+        d is not None and d.year != 1900
+        and r.high is not None
+        and r.low is not None
     )
 
 
-def extract_metadata(rows):
-    name = None
-    sector = None
+def extract_meta(rows):
+    name, sector = None, None
     for r in rows:
         if getattr(r, "name", None):
             name = r.name
         if getattr(r, "sector", None):
             sector = r.sector
-        if name and sector:
-            break
     return name, sector
 
 
 # -------------------------
-# POST company
+# CREATE COMPANY
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>", methods=["POST"])
-def add_company(db, ticker):
+def create_company(db, ticker):
     data = request.get_json()
     if not data or "name" not in data or "sector" not in data:
         return jsonify({"error": "Missing name or sector"}), 400
 
     session.set_keyspace(db)
 
-    # Use a fixed dummy date for static columns
     dummy_date = datetime(1900, 1, 1).date()
 
     session.execute(
@@ -82,31 +86,31 @@ def add_company(db, ticker):
 
 
 # -------------------------
-# POST stock record
+# ADD STOCK RECORD
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["POST"])
-def add_stock(db, ticker, date):
+def add_record(db, ticker, date):
     data = request.get_json()
     if not data or "high" not in data or "low" not in data:
         return jsonify({"error": "Missing high or low"}), 400
 
     session.set_keyspace(db)
 
-    date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+    d = datetime.strptime(date, "%Y-%m-%d").date()
 
     session.execute(
         "INSERT INTO stocks (ticker, date, high, low) VALUES (%s, %s, %s, %s)",
-        (ticker, date_obj, float(data["high"]), float(data["low"]))
+        (ticker, d, float(data["high"]), float(data["low"]))
     )
 
     return jsonify({"ticker": ticker, "date": date}), 201
 
 
 # -------------------------
-# GET all records
+# GET ALL RECORDS
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records", methods=["GET"])
-def get_stocks(db, ticker):
+def get_records(db, ticker):
     session.set_keyspace(db)
 
     rows = list(session.execute(
@@ -114,20 +118,19 @@ def get_stocks(db, ticker):
         (ticker,)
     ))
 
-    name, sector = extract_metadata(rows)
-    valid_rows = [r for r in rows if is_valid_row(r)]
-
-    if not valid_rows:
+    if not rows:
         return jsonify({"error": "not found"}), 404
 
+    name, sector = extract_meta(rows)
+    valid = [r for r in rows if is_stock_row(r)]
+
     results = []
-    for r in valid_rows:
-        d = cassandra_to_date(r.date)
+    for r in valid:
         results.append({
             "ticker": ticker,
             "name": name,
             "sector": sector,
-            "date": str(d),
+            "date": str(to_pydate(r.date)),
             "high": r.high,
             "low": r.low
         })
@@ -137,39 +140,37 @@ def get_stocks(db, ticker):
 
 
 # -------------------------
-# GET one date
+# GET SINGLE DATE
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/<date>", methods=["GET"])
-def get_stock_date(db, ticker, date):
+def get_one(db, ticker, date):
     session.set_keyspace(db)
 
-    date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+    d = datetime.strptime(date, "%Y-%m-%d").date()
 
     row = session.execute(
         "SELECT * FROM stocks WHERE ticker = %s AND date = %s",
-        (ticker, date_obj)
+        (ticker, d)
     ).one()
 
-    if not row or not is_valid_row(row):
+    if not row or not is_stock_row(row):
         return jsonify({"error": "not found"}), 404
-
-    d = cassandra_to_date(row.date)
 
     return jsonify({
         "ticker": ticker,
         "name": getattr(row, "name", None),
         "sector": getattr(row, "sector", None),
-        "date": str(d),
+        "date": str(to_pydate(row.date)),
         "high": row.high,
         "low": row.low
     })
 
 
 # -------------------------
-# GET range
+# GET RANGE
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/range", methods=["GET"])
-def get_stock_range(db, ticker):
+def get_range(db, ticker):
     start = request.args.get("start")
     end = request.args.get("end")
 
@@ -186,13 +187,16 @@ def get_stock_range(db, ticker):
         (ticker,)
     ))
 
-    name, sector = extract_metadata(rows)
-    valid_rows = [r for r in rows if is_valid_row(r)]
+    name, sector = extract_meta(rows)
 
     results = []
-    for r in valid_rows:
-        d = cassandra_to_date(r.date)
-        if d and start <= d <= end:
+    for r in rows:
+        if not is_stock_row(r):
+            continue
+
+        d = to_pydate(r.date)
+
+        if start <= d <= end:
             results.append({
                 "ticker": ticker,
                 "name": name,
@@ -210,10 +214,10 @@ def get_stock_range(db, ticker):
 
 
 # -------------------------
-# GET monthly averages
+# GET MONTHLY AVERAGES
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>/records/monthly", methods=["GET"])
-def get_stock_monthly(db, ticker):
+def get_monthly(db, ticker):
     session.set_keyspace(db)
 
     rows = list(session.execute(
@@ -221,18 +225,13 @@ def get_stock_monthly(db, ticker):
         (ticker,)
     ))
 
-    valid_rows = [r for r in rows if is_valid_row(r)]
-
-    if not valid_rows:
-        return jsonify({"error": "not found"}), 404
-
     monthly = {}
 
-    for r in valid_rows:
-        d = cassandra_to_date(r.date)
-        if not d:
+    for r in rows:
+        if not is_stock_row(r):
             continue
 
+        d = to_pydate(r.date)
         key = d.strftime("%Y-%m")
 
         if key not in monthly:
@@ -241,25 +240,31 @@ def get_stock_monthly(db, ticker):
         monthly[key]["sum"] += r.high
         monthly[key]["count"] += 1
 
-    result = []
-    for k in sorted(monthly.keys()):
-        avg = round(monthly[k]["sum"] / monthly[k]["count"], 4)
-        result.append({
+    if not monthly:
+        return jsonify({"error": "not found"}), 404
+
+    result = [
+        {
             "month": k,
-            "avg_high": avg
-        })
+            "avg_high": round(v["sum"] / v["count"], 4)
+        }
+        for k, v in sorted(monthly.items())
+    ]
 
     return jsonify(result)
 
 
 # -------------------------
-# INIT
+# MAIN
 # -------------------------
 if __name__ == "__main__":
     for _ in range(30):
         try:
             cluster = Cluster(nodes)
             session = cluster.connect()
+
+            session.default_consistency_level = ConsistencyLevel.TWO
+
             break
         except Exception:
             time.sleep(2)
