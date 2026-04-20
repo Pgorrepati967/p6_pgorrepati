@@ -1,5 +1,6 @@
 import os, sys
 import time
+import traceback
 from flask import Flask, request, jsonify
 from datetime import datetime
 from cassandra.cluster import Cluster
@@ -10,11 +11,52 @@ project = os.environ.get("PROJECT", "p6")
 nodes = [f"{project}-cassandra-1", f"{project}-cassandra-2", f"{project}-cassandra-3"]
 session = None
 
-DUMMY_DATE = datetime(1900, 1, 1).date()
+
+# -------------------------
+# GLOBAL ERROR HANDLER
+# -------------------------
+@app.errorhandler(Exception)
+def handle_exception(e):
+    traceback.print_exc()
+    return jsonify({
+        "error": str(e),
+        "type": type(e).__name__
+    }), 500
 
 
 # -------------------------
-# POST /companies
+# helpers
+# -------------------------
+def cassandra_to_date(cass_date):
+    """Convert Cassandra Date -> Python date"""
+    if cass_date is None:
+        return None
+    return cass_date.date()
+
+
+def is_valid_row(r):
+    return (
+        getattr(r, "date", None) is not None
+        and getattr(r, "high", None) is not None
+        and getattr(r, "low", None) is not None
+    )
+
+
+def extract_metadata(rows):
+    name = None
+    sector = None
+    for r in rows:
+        if getattr(r, "name", None):
+            name = r.name
+        if getattr(r, "sector", None):
+            sector = r.sector
+        if name and sector:
+            break
+    return name, sector
+
+
+# -------------------------
+# POST company
 # -------------------------
 @app.route("/<db>/api/companies/<ticker>", methods=["POST"])
 def add_company(db, ticker):
@@ -24,10 +66,12 @@ def add_company(db, ticker):
 
     session.set_keyspace(db)
 
-    # Insert dummy row to create partition
+    # Use a fixed dummy date for static columns
+    dummy_date = datetime(1900, 1, 1).date()
+
     session.execute(
         "INSERT INTO stocks (ticker, date, name, sector) VALUES (%s, %s, %s, %s)",
-        (ticker, DUMMY_DATE, data["name"], data["sector"])
+        (ticker, dummy_date, data["name"], data["sector"])
     )
 
     return jsonify({
@@ -70,30 +114,23 @@ def get_stocks(db, ticker):
         (ticker,)
     ))
 
-    if not rows:
+    name, sector = extract_metadata(rows)
+    valid_rows = [r for r in rows if is_valid_row(r)]
+
+    if not valid_rows:
         return jsonify({"error": "not found"}), 404
 
     results = []
-    for r in rows:
-        if (
-            r.date is None
-            or r.date == DUMMY_DATE
-            or r.high is None
-            or r.low is None
-        ):
-            continue
-
+    for r in valid_rows:
+        d = cassandra_to_date(r.date)
         results.append({
             "ticker": ticker,
-            "name": r.name,
-            "sector": r.sector,
-            "date": str(r.date),
+            "name": name,
+            "sector": sector,
+            "date": str(d),
             "high": r.high,
             "low": r.low
         })
-
-    if not results:
-        return jsonify({"error": "not found"}), 404
 
     results.sort(key=lambda x: x["date"])
     return jsonify(results)
@@ -113,20 +150,16 @@ def get_stock_date(db, ticker, date):
         (ticker, date_obj)
     ).one()
 
-    if (
-        not row
-        or row.date is None
-        or row.date == DUMMY_DATE
-        or row.high is None
-        or row.low is None
-    ):
+    if not row or not is_valid_row(row):
         return jsonify({"error": "not found"}), 404
+
+    d = cassandra_to_date(row.date)
 
     return jsonify({
         "ticker": ticker,
-        "name": row.name,
-        "sector": row.sector,
-        "date": str(row.date),
+        "name": getattr(row, "name", None),
+        "sector": getattr(row, "sector", None),
+        "date": str(d),
         "high": row.high,
         "low": row.low
     })
@@ -153,34 +186,18 @@ def get_stock_range(db, ticker):
         (ticker,)
     ))
 
-    if not rows:
-        return jsonify({"error": "not found"}), 404
+    name, sector = extract_metadata(rows)
+    valid_rows = [r for r in rows if is_valid_row(r)]
 
-    name = None
-    sector = None
     results = []
-
-    for r in rows:
-        # capture static columns safely
-        if r.name:
-            name = r.name
-        if r.sector:
-            sector = r.sector
-
-        if (
-            r.date is None
-            or r.date == DUMMY_DATE
-            or r.high is None
-            or r.low is None
-        ):
-            continue
-
-        if start <= r.date <= end:
+    for r in valid_rows:
+        d = cassandra_to_date(r.date)
+        if d and start <= d <= end:
             results.append({
                 "ticker": ticker,
                 "name": name,
                 "sector": sector,
-                "date": str(r.date),
+                "date": str(d),
                 "high": r.high,
                 "low": r.low
             })
@@ -190,6 +207,8 @@ def get_stock_range(db, ticker):
 
     results.sort(key=lambda x: x["date"])
     return jsonify(results)
+
+
 # -------------------------
 # GET monthly averages
 # -------------------------
@@ -202,30 +221,29 @@ def get_stock_monthly(db, ticker):
         (ticker,)
     ))
 
+    valid_rows = [r for r in rows if is_valid_row(r)]
+
+    if not valid_rows:
+        return jsonify({"error": "not found"}), 404
+
     monthly = {}
 
-    for r in rows:
-        if (
-            r.date is None
-            or r.date == DUMMY_DATE
-            or r.high is None
-        ):
+    for r in valid_rows:
+        d = cassandra_to_date(r.date)
+        if not d:
             continue
 
-        key = r.date.strftime("%Y-%m")
+        key = d.strftime("%Y-%m")
 
         if key not in monthly:
-            monthly[key] = {"sum": 0, "count": 0}
+            monthly[key] = {"sum": 0.0, "count": 0}
 
         monthly[key]["sum"] += r.high
         monthly[key]["count"] += 1
 
-    if not monthly:
-        return jsonify({"error": "not found"}), 404
-
     result = []
     for k in sorted(monthly.keys()):
-        avg = monthly[k]["sum"] / monthly[k]["count"]
+        avg = round(monthly[k]["sum"] / monthly[k]["count"], 4)
         result.append({
             "month": k,
             "avg_high": avg
